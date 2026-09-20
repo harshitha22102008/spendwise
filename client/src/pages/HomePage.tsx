@@ -5,42 +5,89 @@ export function HomePage() {
   const loggedIn = isLoggedIn();
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-[68rem] flex-col justify-center px-6 py-12 animate-fade-in">
-      <p className="mb-3 text-sm font-medium tracking-wide text-accent">
-        SpendWise
-      </p>
-      <h1 className="font-display text-3xl sm:text-[2.25rem]">
-        See where your money goes
-      </h1>
-      <p className="mt-4 max-w-xl text-lg text-muted">
-        Track income and expenses by category, view monthly charts, and move
-        data in or out with CSV.
-      </p>
-      <div className="mt-8 flex flex-wrap gap-3">
-        {loggedIn ? (
-          <Link
-            to="/dashboard"
-            className="inline-flex h-10 items-center rounded-[var(--radius-sm)] bg-accent px-4 font-medium text-white transition hover:bg-accent-hover"
-          >
-            Open dashboard
+    <div className="relative min-h-screen overflow-hidden">
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.4]"
+        style={{
+          backgroundImage:
+            "linear-gradient(var(--color-border) 1px, transparent 1px), linear-gradient(90deg, var(--color-border) 1px, transparent 1px)",
+          backgroundSize: "40px 40px",
+          maskImage:
+            "radial-gradient(ellipse 75% 55% at 40% 25%, black 15%, transparent 70%)",
+        }}
+        aria-hidden
+      />
+
+      <header className="relative z-10 border-b border-border/80 bg-surface/75 backdrop-blur-md">
+        <div className="mx-auto flex h-[var(--nav-h)] max-w-[var(--max-w)] items-center justify-between px-5">
+          <Link to="/" className="sw-nav-link text-lg text-ink" data-active="true">
+            SpendWise
           </Link>
-        ) : (
-          <>
-            <Link
-              to="/register"
-              className="inline-flex h-10 items-center rounded-[var(--radius-sm)] bg-accent px-4 font-medium text-white transition hover:bg-accent-hover"
-            >
-              Get started
-            </Link>
-            <Link
-              to="/login"
-              className="inline-flex h-10 items-center rounded-[var(--radius-sm)] border border-border bg-surface px-4 font-medium text-ink transition hover:bg-accent-soft"
-            >
-              Sign in
-            </Link>
-          </>
-        )}
-      </div>
-    </main>
+          <nav className="flex items-center gap-2">
+            {loggedIn ? (
+              <Link to="/dashboard" className="sw-btn sw-btn-primary">
+                Open ledger
+              </Link>
+            ) : (
+              <>
+                <Link to="/login" className="sw-btn sw-btn-ghost">
+                  Sign in
+                </Link>
+                <Link to="/register" className="sw-btn sw-btn-navy">
+                  Get started
+                </Link>
+              </>
+            )}
+          </nav>
+        </div>
+      </header>
+
+      <main className="relative z-10 mx-auto flex min-h-[calc(100vh-var(--nav-h))] max-w-[var(--max-w)] flex-col justify-center px-5 py-14">
+        <div className="animate-fade-in max-w-2xl">
+          <p className="font-display text-[clamp(2.75rem,7vw,4.5rem)] font-extrabold leading-[0.95] tracking-[-0.04em] text-ink">
+            Spend
+            <span className="text-accent">Wise</span>
+          </p>
+          <h1 className="mt-4 font-display text-xl font-semibold tracking-[-0.02em] text-ink sm:text-2xl">
+            Private ledger. Precise money.
+          </h1>
+          <p className="mt-3 max-w-lg text-sm text-muted sm:text-base">
+            Track income and expenses in a dense ledger — categories, monthly
+            charts, and CSV in and out. Clarity over decoration.
+          </p>
+          <div className="mt-7 flex flex-wrap gap-3 animate-fade-in-delay">
+            {loggedIn ? (
+              <Link to="/dashboard" className="sw-btn sw-btn-primary h-11 px-5">
+                Open ledger
+              </Link>
+            ) : (
+              <>
+                <Link to="/register" className="sw-btn sw-btn-primary h-11 px-5">
+                  Create account
+                </Link>
+                <Link to="/login" className="sw-btn sw-btn-ghost h-11 px-5">
+                  Sign in
+                </Link>
+              </>
+            )}
+          </div>
+        </div>
+
+        <aside className="mt-12 grid max-w-3xl gap-3 sm:grid-cols-3 animate-fade-in-delay">
+          {[
+            { label: "Categories", detail: "Income & expense buckets" },
+            { label: "Charts", detail: "Month by category & day" },
+            { label: "CSV", detail: "Same columns in & out" },
+          ].map((item) => (
+            <div key={item.label} className="sw-panel sw-panel-hover px-4 py-3">
+              <p className="font-display text-sm font-semibold text-ink">
+                {item.label}
+              </p>
+              <p className="mt-1 text-xs text-muted">{item.detail}</p>
+            </div>
+          ))}
+        </aside>
+      </main>
+    </div>
   );
 }

@@ -67,44 +67,46 @@ export function CsvTools({ onImported, onError }: Props) {
   }
 
   return (
-    <section className="mt-12">
-      <h2 className="font-display text-2xl">CSV import / export</h2>
-      <p className="mt-1 text-sm text-muted">
+    <section className="sw-panel sw-panel-hover mt-3 p-4 sm:p-5">
+      <h2 className="font-display text-lg font-semibold tracking-[-0.02em]">
+        CSV import / export
+      </h2>
+      <p className="mt-0.5 text-xs text-muted">
         Same columns both ways:{" "}
-        <code className="rounded bg-accent-soft px-1.5 py-0.5 text-xs text-ink">
+        <code className="rounded-[var(--radius-sm)] bg-accent-soft px-1.5 py-0.5 font-mono text-[0.7rem] text-ink">
           {CSV_COLUMNS}
         </code>
-        . Categories are matched by name and type; missing ones are created on
-        import.
       </p>
 
-      <div className="mt-6 grid gap-8 lg:grid-cols-2">
+      <div className="mt-3 grid gap-4 lg:grid-cols-2">
         <div>
-          <h3 className="text-sm font-medium text-ink">Export</h3>
-          <div className="mt-3 flex flex-wrap items-end gap-3">
-            <label className="flex flex-col gap-1.5 text-sm">
-              <span className="font-medium text-ink">From (optional)</span>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">
+            Export
+          </h3>
+          <div className="mt-2 flex flex-wrap items-end gap-2">
+            <label className="flex flex-col gap-1 text-xs">
+              <span className="font-medium text-ink">From</span>
               <input
                 type="date"
                 value={exportFrom}
                 onChange={(e) => setExportFrom(e.target.value)}
-                className="h-10 rounded-[var(--radius-sm)] border border-border bg-surface px-3 text-ink"
+                className="sw-input"
               />
             </label>
-            <label className="flex flex-col gap-1.5 text-sm">
-              <span className="font-medium text-ink">To (optional)</span>
+            <label className="flex flex-col gap-1 text-xs">
+              <span className="font-medium text-ink">To</span>
               <input
                 type="date"
                 value={exportTo}
                 onChange={(e) => setExportTo(e.target.value)}
-                className="h-10 rounded-[var(--radius-sm)] border border-border bg-surface px-3 text-ink"
+                className="sw-input"
               />
             </label>
             <button
               type="button"
               disabled={busy}
               onClick={onExport}
-              className="h-10 rounded-[var(--radius-sm)] border border-border bg-surface px-4 text-sm font-medium text-ink hover:bg-accent-soft disabled:opacity-60"
+              className="sw-btn sw-btn-ghost disabled:opacity-60"
             >
               {busy ? "Working…" : "Download CSV"}
             </button>
@@ -112,26 +114,28 @@ export function CsvTools({ onImported, onError }: Props) {
         </div>
 
         <div>
-          <h3 className="text-sm font-medium text-ink">Import</h3>
-          <p className="mt-1 text-sm text-muted">
-            Choose a <code className="text-xs">.csv</code> file with the header
-            above. Dates use YYYY-MM-DD; type is income or expense.
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">
+            Import
+          </h3>
+          <p className="mt-1 text-xs text-muted">
+            Header required. Dates YYYY-MM-DD; type income or expense. Missing
+            categories are created.
           </p>
-          <div className="mt-3">
+          <div className="mt-2">
             <input
               ref={fileRef}
               type="file"
               accept=".csv,text/csv"
               disabled={busy}
               onChange={onFileChange}
-              className="block w-full text-sm text-muted file:mr-3 file:h-10 file:rounded-[var(--radius-sm)] file:border file:border-border file:bg-surface file:px-4 file:text-sm file:font-medium file:text-ink hover:file:bg-accent-soft disabled:opacity-60"
+              className="block w-full text-xs text-muted file:mr-3 file:h-9 file:cursor-pointer file:rounded-[var(--radius-sm)] file:border file:border-border file:bg-surface file:px-3 file:text-xs file:font-semibold file:text-ink hover:file:bg-accent-soft disabled:opacity-60"
             />
           </div>
         </div>
       </div>
 
       {message ? (
-        <p className="mt-4 text-sm text-[var(--success)]" role="status">
+        <p className="mt-3 text-sm font-medium text-income" role="status">
           {message}
         </p>
       ) : null}

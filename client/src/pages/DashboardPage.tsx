@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { CountUp } from "../components/CountUp";
 import { CsvTools } from "../components/CsvTools";
 import { MonthlyCharts } from "../components/MonthlyCharts";
 import { apiDelete, apiGet, apiPatch, apiPost } from "../lib/api";
@@ -37,7 +38,6 @@ function currentYearMonth(): { year: number; month: number } {
   return { year: now.getFullYear(), month: now.getMonth() + 1 };
 }
 
-
 export function DashboardPage() {
   const navigate = useNavigate();
   const [user, setUser] = useState<AuthUser | null>(getStoredUser());
@@ -72,10 +72,34 @@ export function DashboardPage() {
   const [summary, setSummary] = useState<MonthlySummary | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
 
+  const [kpiFlash, setKpiFlash] = useState<"income" | "expense" | null>(null);
+  const skipFlashRef = useRef(true);
+
   const categoriesForTx = useMemo(
     () => categories.filter((c) => c.kind === txType),
     [categories, txType],
   );
+
+  const totalIncome = transactions
+    .filter((t) => t.type === "income")
+    .reduce((sum, t) => sum + t.amount, 0);
+  const totalExpense = transactions
+    .filter((t) => t.type === "expense")
+    .reduce((sum, t) => sum + t.amount, 0);
+  const netListed = totalIncome - totalExpense;
+  const incomeCount = categories.filter((c) => c.kind === "income").length;
+  const expenseCount = categories.filter((c) => c.kind === "expense").length;
+
+  useEffect(() => {
+    if (skipFlashRef.current) {
+      skipFlashRef.current = false;
+      return;
+    }
+    const kind = totalIncome >= totalExpense ? "income" : "expense";
+    setKpiFlash(kind);
+    const t = window.setTimeout(() => setKpiFlash(null), 700);
+    return () => window.clearTimeout(t);
+  }, [totalIncome, totalExpense]);
 
   async function loadCategories() {
     const data = await apiGet<{ categories: Category[] }>(
@@ -326,50 +350,57 @@ export function DashboardPage() {
     }
   }
 
-  const incomeCount = categories.filter((c) => c.kind === "income").length;
-  const expenseCount = categories.filter((c) => c.kind === "expense").length;
-  const totalIncome = transactions
-    .filter((t) => t.type === "income")
-    .reduce((sum, t) => sum + t.amount, 0);
-  const totalExpense = transactions
-    .filter((t) => t.type === "expense")
-    .reduce((sum, t) => sum + t.amount, 0);
+  const netFlashClass =
+    kpiFlash === "income"
+      ? "sw-kpi-flash-income"
+      : kpiFlash === "expense"
+        ? "sw-kpi-flash-expense"
+        : "";
 
   return (
     <div className="min-h-screen">
-      <header className="border-b border-border bg-surface/80 backdrop-blur-sm">
-        <div className="mx-auto flex h-[var(--nav-h)] max-w-[68rem] items-center justify-between px-6">
+      <header className="sticky top-0 z-20 border-b border-ink bg-ink text-white">
+        <div className="mx-auto flex h-[var(--nav-h)] max-w-[var(--max-w)] items-center justify-between px-4 sm:px-5">
           <Link
             to="/dashboard"
-            className="font-display text-lg font-semibold text-ink"
+            className="sw-nav-link text-base text-white"
+            data-active="true"
           >
             SpendWise
           </Link>
-          <button
-            type="button"
-            onClick={logout}
-            className="h-9 rounded-[var(--radius-sm)] border border-border bg-surface px-3 text-sm font-medium text-ink transition hover:bg-accent-soft"
-          >
-            Log out
-          </button>
+          <div className="flex items-center gap-3">
+            <span className="hidden text-xs text-white/55 sm:inline">
+              {user?.name || user?.email}
+            </span>
+            <button
+              type="button"
+              onClick={logout}
+              className="sw-btn h-8 border border-white/20 bg-transparent px-3 text-xs text-white hover:border-accent hover:bg-white/5"
+            >
+              Log out
+            </button>
+          </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-[68rem] px-6 py-10">
+      <main className="mx-auto max-w-[var(--max-w)] px-4 py-4 sm:px-5 sm:py-5">
         <div className="animate-fade-in">
-          <h1 className="font-display text-3xl">Dashboard</h1>
-          <p className="mt-2 max-w-xl text-muted">
-            Signed in
-            {user?.name
-              ? ` as ${user.name}`
-              : user?.email
-                ? ` as ${user.email}`
-                : ""}
-            . Manage categories and log income or expenses.
-          </p>
+          <div className="flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <h1 className="font-display text-2xl font-bold tracking-[-0.03em]">
+                Ledger
+              </h1>
+              <p className="mt-0.5 text-xs text-muted">
+                KPIs, charts, categories, and transactions — dense by design.
+              </p>
+            </div>
+          </div>
 
           {error ? (
-            <p className="mt-4 text-sm text-[var(--danger)]" role="alert">
+            <p
+              className="mt-3 rounded-[var(--radius-sm)] border border-expense/30 bg-accent-soft/40 px-3 py-2 text-sm text-expense"
+              role="alert"
+            >
               {error}
             </p>
           ) : null}
@@ -378,33 +409,60 @@ export function DashboardPage() {
             <p className="mt-8 text-sm text-muted">Loading…</p>
           ) : (
             <>
-              <div className="mt-8 flex flex-wrap gap-6 text-sm">
-                <p>
-                  <span className="text-muted">Categories</span>{" "}
-                  <span className="font-medium text-ink">
-                    {categories.length}
-                  </span>
-                </p>
-                <p>
-                  <span className="text-muted">Income cats</span>{" "}
-                  <span className="font-medium text-ink">{incomeCount}</span>
-                </p>
-                <p>
-                  <span className="text-muted">Expense cats</span>{" "}
-                  <span className="font-medium text-ink">{expenseCount}</span>
-                </p>
-                <p>
-                  <span className="text-muted">Listed income</span>{" "}
-                  <span className="font-medium text-[var(--success)]">
-                    {formatMoney(totalIncome)}
-                  </span>
-                </p>
-                <p>
-                  <span className="text-muted">Listed expense</span>{" "}
-                  <span className="font-medium text-[var(--danger)]">
-                    {formatMoney(totalExpense)}
-                  </span>
-                </p>
+              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-5">
+                <div
+                  className={`sw-panel sw-panel-hover px-3 py-2.5 ${kpiFlash === "income" ? "sw-kpi-flash-income" : ""}`}
+                >
+                  <p className="text-[0.65rem] font-semibold uppercase tracking-wide text-muted">
+                    Listed income
+                  </p>
+                  <p className="sw-stat mt-1.5 text-lg text-income">
+                    <CountUp value={totalIncome} />
+                  </p>
+                </div>
+                <div
+                  className={`sw-panel sw-panel-hover px-3 py-2.5 ${kpiFlash === "expense" ? "sw-kpi-flash-expense" : ""}`}
+                >
+                  <p className="text-[0.65rem] font-semibold uppercase tracking-wide text-muted">
+                    Listed expense
+                  </p>
+                  <p className="sw-stat mt-1.5 text-lg text-expense">
+                    <CountUp value={totalExpense} />
+                  </p>
+                </div>
+                <div
+                  className={`sw-panel sw-panel-hover px-3 py-2.5 ${netFlashClass}`}
+                >
+                  <p className="text-[0.65rem] font-semibold uppercase tracking-wide text-muted">
+                    Net (listed)
+                  </p>
+                  <p
+                    className={`sw-stat mt-1.5 text-lg ${
+                      netListed >= 0 ? "text-income" : "text-expense"
+                    }`}
+                  >
+                    <CountUp value={netListed} />
+                  </p>
+                </div>
+                <div className="sw-panel sw-panel-hover px-3 py-2.5">
+                  <p className="text-[0.65rem] font-semibold uppercase tracking-wide text-muted">
+                    Categories
+                  </p>
+                  <p className="sw-stat mt-1.5 text-lg text-ink">
+                    <CountUp value={categories.length} decimals={0} />
+                  </p>
+                  <p className="mt-1 text-[0.65rem] text-muted">
+                    {incomeCount} in · {expenseCount} out
+                  </p>
+                </div>
+                <div className="sw-panel sw-panel-hover col-span-2 px-3 py-2.5 sm:col-span-1">
+                  <p className="text-[0.65rem] font-semibold uppercase tracking-wide text-muted">
+                    Transactions
+                  </p>
+                  <p className="sw-stat mt-1.5 text-lg text-ink">
+                    <CountUp value={transactions.length} decimals={0} />
+                  </p>
+                </div>
               </div>
 
               <MonthlyCharts
@@ -428,18 +486,19 @@ export function DashboardPage() {
                 }}
               />
 
-              <section className="mt-10">
-                <h2 className="font-display text-2xl">Categories</h2>
-                <p className="mt-1 text-sm text-muted">
-                  Group income and spending so transactions stay organized.
-                </p>
+              <div className="mt-3 grid gap-3 lg:grid-cols-5">
+                <section className="sw-panel sw-panel-hover p-4 lg:col-span-2">
+                  <h2 className="font-display text-lg font-semibold tracking-[-0.02em]">
+                    Categories
+                  </h2>
+                  <p className="mt-0.5 text-xs text-muted">
+                    Buckets for income and spending.
+                  </p>
 
-                <form
-                  onSubmit={onCreateCategory}
-                  className="mt-4 flex flex-wrap items-end gap-3"
-                >
-                  <label className="flex min-w-[12rem] flex-1 flex-col gap-1.5 text-sm">
-                    <span className="font-medium text-ink">Name</span>
+                  <form
+                    onSubmit={onCreateCategory}
+                    className="mt-3 flex flex-wrap gap-2"
+                  >
                     <input
                       type="text"
                       required
@@ -447,145 +506,146 @@ export function DashboardPage() {
                       value={categoryName}
                       onChange={(e) => setCategoryName(e.target.value)}
                       placeholder="e.g. Groceries"
-                      className="h-10 rounded-[var(--radius-sm)] border border-border bg-surface px-3 text-ink"
+                      className="sw-input min-w-0 flex-1"
                     />
-                  </label>
-                  <label className="flex min-w-[8rem] flex-col gap-1.5 text-sm">
-                    <span className="font-medium text-ink">Kind</span>
                     <select
                       value={categoryKind}
                       onChange={(e) =>
                         setCategoryKind(e.target.value as CategoryKind)
                       }
-                      className="h-10 rounded-[var(--radius-sm)] border border-border bg-surface px-3 text-ink"
+                      className="sw-input w-[7.5rem]"
                     >
                       <option value="expense">Expense</option>
                       <option value="income">Income</option>
                     </select>
-                  </label>
-                  <button
-                    type="submit"
-                    disabled={categoryBusy}
-                    className="h-10 rounded-[var(--radius-sm)] bg-accent px-4 text-sm font-medium text-white transition hover:bg-accent-hover disabled:opacity-60"
-                  >
-                    {categoryBusy ? "Saving…" : "Add category"}
-                  </button>
-                </form>
+                    <button
+                      type="submit"
+                      disabled={categoryBusy}
+                      className="sw-btn sw-btn-primary disabled:opacity-60"
+                    >
+                      {categoryBusy ? "…" : "Add"}
+                    </button>
+                  </form>
 
-                {categories.length === 0 ? (
-                  <p className="mt-6 text-sm text-muted">
-                    No categories yet. Add one to start tracking money.
+                  {categories.length === 0 ? (
+                    <p className="mt-4 text-xs text-muted">
+                      No categories yet. Add one to start tracking.
+                    </p>
+                  ) : (
+                    <ul className="mt-3 max-h-[22rem] divide-y divide-border overflow-y-auto border-t border-border">
+                      {categories.map((category) => (
+                        <li
+                          key={category.id}
+                          className="sw-row flex flex-wrap items-center gap-2 px-2 py-2"
+                        >
+                          {editingId === category.id ? (
+                            <>
+                              <input
+                                type="text"
+                                value={editName}
+                                onChange={(e) => setEditName(e.target.value)}
+                                className="sw-input h-8 min-w-0 flex-1 text-xs"
+                              />
+                              <select
+                                value={editKind}
+                                onChange={(e) =>
+                                  setEditKind(e.target.value as CategoryKind)
+                                }
+                                className="sw-input h-8 w-[6.5rem] text-xs"
+                              >
+                                <option value="expense">Expense</option>
+                                <option value="income">Income</option>
+                              </select>
+                              <button
+                                type="button"
+                                disabled={categoryBusy}
+                                onClick={() => onSaveCategory(category.id)}
+                                className="sw-btn sw-btn-primary h-8 px-2 text-xs disabled:opacity-60"
+                              >
+                                Save
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setEditingId(null)}
+                                className="sw-btn sw-btn-ghost h-8 px-2 text-xs"
+                              >
+                                Cancel
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">
+                                {category.name}
+                              </span>
+                              <span
+                                className={`rounded-[var(--radius-sm)] px-1.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide ${
+                                  category.kind === "income"
+                                    ? "bg-accent-soft text-income"
+                                    : "bg-[#eef1f6] text-muted"
+                                }`}
+                              >
+                                {category.kind}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingId(category.id);
+                                  setEditName(category.name);
+                                  setEditKind(category.kind);
+                                }}
+                                className="sw-btn sw-btn-ghost h-7 px-2 text-[0.7rem]"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => onDeleteCategory(category.id)}
+                                className="sw-btn h-7 border border-border px-2 text-[0.7rem] text-expense hover:bg-accent-soft"
+                              >
+                                Del
+                              </button>
+                            </>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
+
+                <section className="sw-panel sw-panel-hover p-4 lg:col-span-3">
+                  <h2 className="font-display text-lg font-semibold tracking-[-0.02em]">
+                    Transactions
+                  </h2>
+                  <p className="mt-0.5 text-xs text-muted">
+                    Dense ledger rows — filter inline.
                   </p>
-                ) : (
-                  <ul className="mt-6 divide-y divide-border border-y border-border">
-                    {categories.map((category) => (
-                      <li
-                        key={category.id}
-                        className="flex flex-wrap items-center gap-3 py-3"
-                      >
-                        {editingId === category.id ? (
-                          <>
-                            <input
-                              type="text"
-                              value={editName}
-                              onChange={(e) => setEditName(e.target.value)}
-                              className="h-9 min-w-[10rem] flex-1 rounded-[var(--radius-sm)] border border-border bg-surface px-3 text-sm"
-                            />
-                            <select
-                              value={editKind}
-                              onChange={(e) =>
-                                setEditKind(e.target.value as CategoryKind)
-                              }
-                              className="h-9 rounded-[var(--radius-sm)] border border-border bg-surface px-2 text-sm"
-                            >
-                              <option value="expense">Expense</option>
-                              <option value="income">Income</option>
-                            </select>
-                            <button
-                              type="button"
-                              disabled={categoryBusy}
-                              onClick={() => onSaveCategory(category.id)}
-                              className="h-9 rounded-[var(--radius-sm)] bg-accent px-3 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-60"
-                            >
-                              Save
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setEditingId(null)}
-                              className="h-9 rounded-[var(--radius-sm)] border border-border px-3 text-sm"
-                            >
-                              Cancel
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <span className="min-w-0 flex-1 font-medium text-ink">
-                              {category.name}
-                            </span>
-                            <span className="rounded-[var(--radius-sm)] bg-accent-soft px-2 py-0.5 text-xs font-medium capitalize text-accent">
-                              {category.kind}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setEditingId(category.id);
-                                setEditName(category.name);
-                                setEditKind(category.kind);
-                              }}
-                              className="h-9 rounded-[var(--radius-sm)] border border-border px-3 text-sm hover:bg-accent-soft"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => onDeleteCategory(category.id)}
-                              className="h-9 rounded-[var(--radius-sm)] border border-border px-3 text-sm text-[var(--danger)] hover:bg-accent-soft"
-                            >
-                              Delete
-                            </button>
-                          </>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </section>
 
-              <section className="mt-12">
-                <h2 className="font-display text-2xl">Transactions</h2>
-                <p className="mt-1 text-sm text-muted">
-                  Log income and expenses. Filter by type, category, or date.
-                </p>
-
-                {categories.length === 0 ? (
-                  <p className="mt-6 text-sm text-muted">
-                    Add a category before logging a transaction.
-                  </p>
-                ) : (
-                  <form
-                    onSubmit={onCreateTransaction}
-                    className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-5"
-                  >
-                    <label className="flex flex-col gap-1.5 text-sm">
-                      <span className="font-medium text-ink">Type</span>
+                  {categories.length === 0 ? (
+                    <p className="mt-4 text-xs text-muted">
+                      Add a category before logging a transaction.
+                    </p>
+                  ) : (
+                    <form
+                      onSubmit={onCreateTransaction}
+                      className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3"
+                    >
                       <select
                         value={txType}
                         onChange={(e) =>
                           setTxType(e.target.value as TransactionType)
                         }
-                        className="h-10 rounded-[var(--radius-sm)] border border-border bg-surface px-3 text-ink"
+                        className="sw-input"
+                        aria-label="Type"
                       >
                         <option value="expense">Expense</option>
                         <option value="income">Income</option>
                       </select>
-                    </label>
-                    <label className="flex flex-col gap-1.5 text-sm">
-                      <span className="font-medium text-ink">Category</span>
                       <select
                         required
                         value={txCategoryId}
                         onChange={(e) => setTxCategoryId(e.target.value)}
-                        className="h-10 rounded-[var(--radius-sm)] border border-border bg-surface px-3 text-ink"
+                        className="sw-input"
+                        aria-label="Category"
                       >
                         {categoriesForTx.length === 0 ? (
                           <option value="">No matching categories</option>
@@ -597,9 +657,6 @@ export function DashboardPage() {
                           ))
                         )}
                       </select>
-                    </label>
-                    <label className="flex flex-col gap-1.5 text-sm">
-                      <span className="font-medium text-ink">Amount</span>
                       <input
                         type="number"
                         required
@@ -607,34 +664,27 @@ export function DashboardPage() {
                         step="0.01"
                         value={txAmount}
                         onChange={(e) => setTxAmount(e.target.value)}
-                        placeholder="0.00"
-                        className="h-10 rounded-[var(--radius-sm)] border border-border bg-surface px-3 text-ink"
+                        placeholder="Amount"
+                        className="sw-input font-mono"
+                        aria-label="Amount"
                       />
-                    </label>
-                    <label className="flex flex-col gap-1.5 text-sm">
-                      <span className="font-medium text-ink">Date</span>
                       <input
                         type="date"
                         required
                         value={txDate}
                         onChange={(e) => setTxDate(e.target.value)}
-                        className="h-10 rounded-[var(--radius-sm)] border border-border bg-surface px-3 text-ink"
+                        className="sw-input"
+                        aria-label="Date"
                       />
-                    </label>
-                    <label className="flex flex-col gap-1.5 text-sm">
-                      <span className="font-medium text-ink">
-                        Note (optional)
-                      </span>
                       <input
                         type="text"
                         maxLength={200}
                         value={txNote}
                         onChange={(e) => setTxNote(e.target.value)}
-                        placeholder="Weekly groceries"
-                        className="h-10 rounded-[var(--radius-sm)] border border-border bg-surface px-3 text-ink"
+                        placeholder="Note (optional)"
+                        className="sw-input"
+                        aria-label="Note"
                       />
-                    </label>
-                    <div className="flex items-end sm:col-span-2 lg:col-span-5">
                       <button
                         type="submit"
                         disabled={
@@ -642,145 +692,138 @@ export function DashboardPage() {
                           !txCategoryId ||
                           categoriesForTx.length === 0
                         }
-                        className="h-10 rounded-[var(--radius-sm)] bg-accent px-4 text-sm font-medium text-white transition hover:bg-accent-hover disabled:opacity-60"
+                        className="sw-btn sw-btn-primary disabled:opacity-60"
                       >
                         {txBusy ? "Saving…" : "Add transaction"}
                       </button>
-                    </div>
-                  </form>
-                )}
+                    </form>
+                  )}
 
-                <form
-                  onSubmit={onApplyFilters}
-                  className="mt-8 flex flex-wrap items-end gap-3 border-t border-border pt-6"
-                >
-                  <label className="flex min-w-[7rem] flex-col gap-1.5 text-sm">
-                    <span className="font-medium text-ink">Filter type</span>
+                  <form
+                    onSubmit={onApplyFilters}
+                    className="mt-3 flex flex-wrap items-end gap-2 border-t border-border pt-3"
+                  >
                     <select
                       value={filterType}
                       onChange={(e) =>
                         setFilterType(e.target.value as "" | TransactionType)
                       }
-                      className="h-10 rounded-[var(--radius-sm)] border border-border bg-surface px-3 text-ink"
+                      className="sw-input w-[6.5rem]"
+                      aria-label="Filter type"
                     >
-                      <option value="">All</option>
+                      <option value="">All types</option>
                       <option value="income">Income</option>
                       <option value="expense">Expense</option>
                     </select>
-                  </label>
-                  <label className="flex min-w-[10rem] flex-1 flex-col gap-1.5 text-sm">
-                    <span className="font-medium text-ink">
-                      Filter category
-                    </span>
                     <select
                       value={filterCategoryId}
                       onChange={(e) => setFilterCategoryId(e.target.value)}
-                      className="h-10 rounded-[var(--radius-sm)] border border-border bg-surface px-3 text-ink"
+                      className="sw-input min-w-[8rem] flex-1"
+                      aria-label="Filter category"
                     >
-                      <option value="">All</option>
+                      <option value="">All categories</option>
                       {categories.map((c) => (
                         <option key={c.id} value={c.id}>
                           {c.name} ({c.kind})
                         </option>
                       ))}
                     </select>
-                  </label>
-                  <label className="flex flex-col gap-1.5 text-sm">
-                    <span className="font-medium text-ink">From</span>
                     <input
                       type="date"
                       value={filterFrom}
                       onChange={(e) => setFilterFrom(e.target.value)}
-                      className="h-10 rounded-[var(--radius-sm)] border border-border bg-surface px-3 text-ink"
+                      className="sw-input"
+                      aria-label="From"
                     />
-                  </label>
-                  <label className="flex flex-col gap-1.5 text-sm">
-                    <span className="font-medium text-ink">To</span>
                     <input
                       type="date"
                       value={filterTo}
                       onChange={(e) => setFilterTo(e.target.value)}
-                      className="h-10 rounded-[var(--radius-sm)] border border-border bg-surface px-3 text-ink"
+                      className="sw-input"
+                      aria-label="To"
                     />
-                  </label>
-                  <button
-                    type="submit"
-                    className="h-10 rounded-[var(--radius-sm)] border border-border bg-surface px-4 text-sm font-medium text-ink hover:bg-accent-soft"
-                  >
-                    Apply filters
-                  </button>
-                  <button
-                    type="button"
-                    onClick={onClearFilters}
-                    className="h-10 rounded-[var(--radius-sm)] border border-border px-4 text-sm text-muted hover:bg-accent-soft"
-                  >
-                    Clear
-                  </button>
-                </form>
+                    <button type="submit" className="sw-btn sw-btn-ghost">
+                      Filter
+                    </button>
+                    <button
+                      type="button"
+                      onClick={onClearFilters}
+                      className="sw-btn h-9 border-0 bg-transparent px-2 text-xs text-muted hover:text-ink"
+                    >
+                      Clear
+                    </button>
+                  </form>
 
-                {transactions.length === 0 ? (
-                  <p className="mt-6 text-sm text-muted">
-                    No transactions match. Add one or clear filters.
-                  </p>
-                ) : (
-                  <div className="mt-6 overflow-x-auto">
-                    <table className="w-full min-w-[36rem] border-collapse text-left text-sm">
-                      <thead>
-                        <tr className="border-b border-border text-muted">
-                          <th className="py-2 pr-4 font-medium">Date</th>
-                          <th className="py-2 pr-4 font-medium">Type</th>
-                          <th className="py-2 pr-4 font-medium">Category</th>
-                          <th className="py-2 pr-4 font-medium">Amount</th>
-                          <th className="py-2 pr-4 font-medium">Note</th>
-                          <th className="py-2 font-medium">
-                            <span className="sr-only">Actions</span>
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {transactions.map((tx) => (
-                          <tr
-                            key={tx.id}
-                            className="border-b border-border/80"
-                          >
-                            <td className="py-2.5 pr-4 tabular-nums text-ink">
-                              {formatTxDate(tx.date)}
-                            </td>
-                            <td className="py-2.5 pr-4 capitalize text-ink">
-                              {tx.type}
-                            </td>
-                            <td className="py-2.5 pr-4 text-ink">
-                              {tx.category.name}
-                            </td>
-                            <td
-                              className={`py-2.5 pr-4 tabular-nums font-medium ${
-                                tx.type === "income"
-                                  ? "text-[var(--success)]"
-                                  : "text-ink"
-                              }`}
-                            >
-                              {tx.type === "income" ? "+" : "−"}
-                              {formatMoney(tx.amount)}
-                            </td>
-                            <td className="py-2.5 pr-4 text-muted">
-                              {tx.note ?? "—"}
-                            </td>
-                            <td className="py-2.5 text-right">
-                              <button
-                                type="button"
-                                onClick={() => onDeleteTransaction(tx.id)}
-                                className="rounded-[var(--radius-sm)] border border-border px-2.5 py-1 text-xs text-[var(--danger)] hover:bg-accent-soft"
-                              >
-                                Delete
-                              </button>
-                            </td>
+                  {transactions.length === 0 ? (
+                    <p className="mt-4 text-xs text-muted">
+                      No transactions match. Add one or clear filters.
+                    </p>
+                  ) : (
+                    <div className="mt-3 overflow-x-auto rounded-[var(--radius-sm)] border border-border">
+                      <table className="w-full min-w-[34rem] border-collapse text-left text-xs">
+                        <thead className="sticky top-0 z-10">
+                          <tr className="bg-ink text-[0.65rem] uppercase tracking-wide text-white/70">
+                            <th className="px-2.5 py-2 font-semibold">Date</th>
+                            <th className="px-2.5 py-2 font-semibold">Type</th>
+                            <th className="px-2.5 py-2 font-semibold">
+                              Category
+                            </th>
+                            <th className="px-2.5 py-2 text-right font-semibold">
+                              Amount
+                            </th>
+                            <th className="px-2.5 py-2 font-semibold">Note</th>
+                            <th className="px-2.5 py-2 font-semibold">
+                              <span className="sr-only">Actions</span>
+                            </th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </section>
+                        </thead>
+                        <tbody>
+                          {transactions.map((tx) => (
+                            <tr
+                              key={tx.id}
+                              className="sw-row border-t border-border"
+                            >
+                              <td className="px-2.5 py-1.5 font-mono text-ink">
+                                {formatTxDate(tx.date)}
+                              </td>
+                              <td className="px-2.5 py-1.5 capitalize text-muted">
+                                {tx.type}
+                              </td>
+                              <td className="px-2.5 py-1.5">
+                                <span className="inline-flex rounded-[var(--radius-sm)] border border-border bg-[#f8f9fc] px-1.5 py-0.5 text-[0.7rem] font-medium text-ink">
+                                  {tx.category.name}
+                                </span>
+                              </td>
+                              <td
+                                className={`px-2.5 py-1.5 text-right font-mono font-semibold ${
+                                  tx.type === "income"
+                                    ? "text-income"
+                                    : "text-expense"
+                                }`}
+                              >
+                                {tx.type === "income" ? "+" : "−"}
+                                {formatMoney(tx.amount)}
+                              </td>
+                              <td className="max-w-[10rem] truncate px-2.5 py-1.5 text-muted">
+                                {tx.note ?? "—"}
+                              </td>
+                              <td className="px-2.5 py-1.5 text-right">
+                                <button
+                                  type="button"
+                                  onClick={() => onDeleteTransaction(tx.id)}
+                                  className="sw-btn h-7 border border-border px-2 text-[0.65rem] text-expense hover:bg-accent-soft"
+                                >
+                                  Del
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </section>
+              </div>
 
               <CsvTools
                 onError={(msg) => setError(msg || null)}
