@@ -1,6 +1,6 @@
 # SpendWise
 
-Personal finance tracker for student income and expenses with categories, budgets, and simple charts.
+Personal finance tracker for student income and expenses with categories, charts, and CSV import/export.
 
 **Status:** Scaffold — implementation pending
 

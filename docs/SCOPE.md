@@ -1,20 +1,22 @@
 # SpendWise — MVP Scope
 
 ## Purpose
-Track income and spending so students can see where money goes and stay within budgets.
+Track income and spending so students can see where money goes and move data in/out via CSV.
 
 ## Stack (planned)
-React + backend (Node/Vite-friendly setup)
+React + TypeScript + Express + Prisma/SQLite (program locked stack)
 
 ## MVP features
-- Income and expense CRUD
+- Authentication (register / login)
 - Categories
-- Budgets (per category or overall)
-- Charts (spend by category / over time)
-- CSV import and export
+- Income and expense CRUD
+- Monthly summary chart (spend by category / over time)
+- CSV export and import (same columns)
 
 ## Out of scope for MVP
+- Budgets with alerts
 - Bank account linking
+- Receipt OCR
 - Multi-currency FX
 - Shared household budgets
 
