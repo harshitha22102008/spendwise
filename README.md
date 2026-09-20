@@ -29,6 +29,16 @@ Third app in the portfolio program — builds on StudyFlow by adding aggregation
 - Receipt OCR
 - Multi-currency FX
 
+## Database
+
+- **User** — email, passwordHash, name
+- **Category** — name, kind (`income` | `expense`), color, per-user
+- **Transaction** — amount, type (`income` | `expense`), date, note, categoryId
+
+```bash
+cd server && npx prisma migrate dev
+```
+
 ## Architecture
 
 ```
