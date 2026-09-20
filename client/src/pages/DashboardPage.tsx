@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { MonthlyCharts } from "../components/MonthlyCharts";
 import { apiDelete, apiGet, apiPatch, apiPost } from "../lib/api";
 import { clearAuth, getStoredUser, type AuthUser } from "../lib/auth";
 import type {
   Category,
   CategoryKind,
+  MonthlySummary,
   Transaction,
   TransactionType,
 } from "../lib/types";
@@ -28,6 +30,12 @@ function formatMoney(amount: number): string {
     maximumFractionDigits: 2,
   });
 }
+
+function currentYearMonth(): { year: number; month: number } {
+  const now = new Date();
+  return { year: now.getFullYear(), month: now.getMonth() + 1 };
+}
+
 
 export function DashboardPage() {
   const navigate = useNavigate();
@@ -56,6 +64,12 @@ export function DashboardPage() {
   const [filterCategoryId, setFilterCategoryId] = useState("");
   const [filterFrom, setFilterFrom] = useState("");
   const [filterTo, setFilterTo] = useState("");
+
+  const initialYm = currentYearMonth();
+  const [summaryYear, setSummaryYear] = useState(initialYm.year);
+  const [summaryMonth, setSummaryMonth] = useState(initialYm.month);
+  const [summary, setSummary] = useState<MonthlySummary | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
 
   const categoriesForTx = useMemo(
     () => categories.filter((c) => c.kind === txType),
@@ -92,6 +106,19 @@ export function DashboardPage() {
     setTransactions(data.transactions);
   }
 
+  async function loadSummary(year = summaryYear, month = summaryMonth) {
+    setSummaryLoading(true);
+    try {
+      const data = await apiGet<MonthlySummary>(
+        `/api/summary/month?year=${year}&month=${month}`,
+        true,
+      );
+      setSummary(data);
+    } finally {
+      setSummaryLoading(false);
+    }
+  }
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -101,6 +128,7 @@ export function DashboardPage() {
         setUser(data.user);
         const cats = await loadCategories();
         await loadTransactions();
+        await loadSummary();
         if (cancelled) return;
         const expenseCats = cats.filter((c) => c.kind === "expense");
         setTxCategoryId(expenseCats[0]?.id ?? cats[0]?.id ?? "");
@@ -239,6 +267,7 @@ export function DashboardPage() {
         true,
       );
       await loadTransactions();
+      await loadSummary();
       setTxAmount("");
       setTxNote("");
     } catch (err) {
@@ -256,6 +285,7 @@ export function DashboardPage() {
     try {
       await apiDelete(`/api/transactions/${id}`, true);
       setTransactions((prev) => prev.filter((t) => t.id !== id));
+      await loadSummary();
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to delete transaction",
@@ -375,6 +405,27 @@ export function DashboardPage() {
                   </span>
                 </p>
               </div>
+
+              <MonthlyCharts
+                summary={summary}
+                loading={summaryLoading}
+                year={summaryYear}
+                month={summaryMonth}
+                onMonthChange={async (year, month) => {
+                  setSummaryYear(year);
+                  setSummaryMonth(month);
+                  setError(null);
+                  try {
+                    await loadSummary(year, month);
+                  } catch (err) {
+                    setError(
+                      err instanceof Error
+                        ? err.message
+                        : "Failed to load summary",
+                    );
+                  }
+                }}
+              />
 
               <section className="mt-10">
                 <h2 className="font-display text-2xl">Categories</h2>

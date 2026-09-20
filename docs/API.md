@@ -31,3 +31,12 @@ Owner-scoped. `type` is `income` or `expense`. Category must belong to the user 
 | POST | /api/transactions | Yes | Create `{ categoryId, amount, type, date, note? }` |
 | PATCH | /api/transactions/:id | Yes | Update fields |
 | DELETE | /api/transactions/:id | Yes | Delete |
+
+## Summary
+
+Owner-scoped monthly aggregations for dashboard charts.
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | /api/summary/month | Yes | Monthly totals, expense by category, daily income/expense (`?year=&month=` optional; defaults to current local month) |
+

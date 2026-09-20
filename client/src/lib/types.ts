@@ -28,3 +28,28 @@ export type Transaction = {
     color: string | null;
   };
 };
+
+export type MonthlySummary = {
+  year: number;
+  month: number;
+  from: string;
+  to: string;
+  totals: {
+    income: number;
+    expense: number;
+    net: number;
+  };
+  byCategory: Array<{
+    categoryId: string;
+    name: string;
+    type: string;
+    amount: number;
+    color: string | null;
+  }>;
+  byDay: Array<{
+    date: string;
+    income: number;
+    expense: number;
+  }>;
+  transactionCount: number;
+};
