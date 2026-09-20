@@ -20,3 +20,14 @@ Owner-scoped. `kind` is `income` or `expense`.
 | POST | /api/categories | Yes | Create `{ name, kind, color? }` |
 | PATCH | /api/categories/:id | Yes | Update name / kind / color |
 | DELETE | /api/categories/:id | Yes | Delete (409 if transactions exist) |
+
+## Transactions
+
+Owner-scoped. `type` is `income` or `expense`. Category must belong to the user and its `kind` must match `type`.
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | /api/transactions | Yes | List (`?type=&categoryId=&from=&to=` optional) |
+| POST | /api/transactions | Yes | Create `{ categoryId, amount, type, date, note? }` |
+| PATCH | /api/transactions/:id | Yes | Update fields |
+| DELETE | /api/transactions/:id | Yes | Delete |

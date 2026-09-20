@@ -20,4 +20,4 @@ React + TypeScript + Express + Prisma/SQLite (program locked stack)
 - Multi-currency FX
 - Shared household budgets
 
-**Status:** Auth + categories in progress; charts/CSV next
+**Status:** Auth + categories + transactions; charts/CSV next

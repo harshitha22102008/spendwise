@@ -4,6 +4,7 @@ import express from "express";
 import { authRouter } from "./routes/auth.js";
 import { categoriesRouter } from "./routes/categories.js";
 import { healthRouter } from "./routes/health.js";
+import { transactionsRouter } from "./routes/transactions.js";
 
 dotenv.config();
 
@@ -21,6 +22,7 @@ app.use(express.json());
 app.use("/api/health", healthRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/categories", categoriesRouter);
+app.use("/api/transactions", transactionsRouter);
 
 app.listen(PORT, () => {
   console.log(`SpendWise API listening on http://localhost:${PORT}`);

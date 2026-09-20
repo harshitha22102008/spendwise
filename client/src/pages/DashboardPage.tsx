@@ -1,9 +1,33 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { apiDelete, apiGet, apiPatch, apiPost } from "../lib/api";
 import { clearAuth, getStoredUser, type AuthUser } from "../lib/auth";
-import type { Category, CategoryKind } from "../lib/types";
+import type {
+  Category,
+  CategoryKind,
+  Transaction,
+  TransactionType,
+} from "../lib/types";
+
+function todayISODate(): string {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function formatTxDate(iso: string): string {
+  return iso.slice(0, 10);
+}
+
+function formatMoney(amount: number): string {
+  return amount.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
 
 export function DashboardPage() {
   const navigate = useNavigate();
@@ -12,6 +36,7 @@ export function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   const [categories, setCategories] = useState<Category[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
 
   const [categoryName, setCategoryName] = useState("");
   const [categoryKind, setCategoryKind] = useState<CategoryKind>("expense");
@@ -20,12 +45,51 @@ export function DashboardPage() {
   const [editName, setEditName] = useState("");
   const [editKind, setEditKind] = useState<CategoryKind>("expense");
 
+  const [txType, setTxType] = useState<TransactionType>("expense");
+  const [txCategoryId, setTxCategoryId] = useState("");
+  const [txAmount, setTxAmount] = useState("");
+  const [txDate, setTxDate] = useState(todayISODate());
+  const [txNote, setTxNote] = useState("");
+  const [txBusy, setTxBusy] = useState(false);
+
+  const [filterType, setFilterType] = useState<"" | TransactionType>("");
+  const [filterCategoryId, setFilterCategoryId] = useState("");
+  const [filterFrom, setFilterFrom] = useState("");
+  const [filterTo, setFilterTo] = useState("");
+
+  const categoriesForTx = useMemo(
+    () => categories.filter((c) => c.kind === txType),
+    [categories, txType],
+  );
+
   async function loadCategories() {
     const data = await apiGet<{ categories: Category[] }>(
       "/api/categories",
       true,
     );
     setCategories(data.categories);
+    return data.categories;
+  }
+
+  async function loadTransactions(filters?: {
+    type?: string;
+    categoryId?: string;
+    from?: string;
+    to?: string;
+  }) {
+    const params = new URLSearchParams();
+    const type = filters?.type ?? filterType;
+    const categoryId = filters?.categoryId ?? filterCategoryId;
+    const from = filters?.from ?? filterFrom;
+    const to = filters?.to ?? filterTo;
+    if (type) params.set("type", type);
+    if (categoryId) params.set("categoryId", categoryId);
+    if (from) params.set("from", from);
+    if (to) params.set("to", to);
+    const qs = params.toString();
+    const path = qs ? `/api/transactions?${qs}` : "/api/transactions";
+    const data = await apiGet<{ transactions: Transaction[] }>(path, true);
+    setTransactions(data.transactions);
   }
 
   useEffect(() => {
@@ -35,7 +99,11 @@ export function DashboardPage() {
         const data = await apiGet<{ user: AuthUser }>("/api/auth/me", true);
         if (cancelled) return;
         setUser(data.user);
-        await loadCategories();
+        const cats = await loadCategories();
+        await loadTransactions();
+        if (cancelled) return;
+        const expenseCats = cats.filter((c) => c.kind === "expense");
+        setTxCategoryId(expenseCats[0]?.id ?? cats[0]?.id ?? "");
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : "Session expired");
@@ -49,7 +117,15 @@ export function DashboardPage() {
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- initial load only
   }, [navigate]);
+
+  useEffect(() => {
+    setTxCategoryId((prev) => {
+      if (prev && categoriesForTx.some((c) => c.id === prev)) return prev;
+      return categoriesForTx[0]?.id ?? "";
+    });
+  }, [categoriesForTx]);
 
   function logout() {
     clearAuth();
@@ -73,6 +149,9 @@ export function DashboardPage() {
         ),
       );
       setCategoryName("");
+      if (!txCategoryId && data.category.kind === txType) {
+        setTxCategoryId(data.category.id);
+      }
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to create category",
@@ -99,6 +178,21 @@ export function DashboardPage() {
               a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name),
           ),
       );
+      setTransactions((prev) =>
+        prev.map((t) =>
+          t.categoryId === id
+            ? {
+                ...t,
+                category: {
+                  id: data.category.id,
+                  name: data.category.name,
+                  kind: data.category.kind,
+                  color: data.category.color,
+                },
+              }
+            : t,
+        ),
+      );
       setEditingId(null);
     } catch (err) {
       setError(
@@ -117,6 +211,8 @@ export function DashboardPage() {
       await apiDelete(`/api/categories/${id}`, true);
       setCategories((prev) => prev.filter((c) => c.id !== id));
       if (editingId === id) setEditingId(null);
+      if (txCategoryId === id) setTxCategoryId("");
+      if (filterCategoryId === id) setFilterCategoryId("");
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to delete category",
@@ -126,8 +222,87 @@ export function DashboardPage() {
     }
   }
 
+  async function onCreateTransaction(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setTxBusy(true);
+    try {
+      await apiPost<{ transaction: Transaction }>(
+        "/api/transactions",
+        {
+          categoryId: txCategoryId,
+          amount: Number(txAmount),
+          type: txType,
+          date: txDate,
+          note: txNote.trim() || undefined,
+        },
+        true,
+      );
+      await loadTransactions();
+      setTxAmount("");
+      setTxNote("");
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to add transaction",
+      );
+    } finally {
+      setTxBusy(false);
+    }
+  }
+
+  async function onDeleteTransaction(id: string) {
+    if (!window.confirm("Delete this transaction?")) return;
+    setError(null);
+    try {
+      await apiDelete(`/api/transactions/${id}`, true);
+      setTransactions((prev) => prev.filter((t) => t.id !== id));
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to delete transaction",
+      );
+    }
+  }
+
+  async function onApplyFilters(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    try {
+      await loadTransactions();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to filter transactions",
+      );
+    }
+  }
+
+  async function onClearFilters() {
+    setFilterType("");
+    setFilterCategoryId("");
+    setFilterFrom("");
+    setFilterTo("");
+    setError(null);
+    try {
+      await loadTransactions({
+        type: "",
+        categoryId: "",
+        from: "",
+        to: "",
+      });
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to load transactions",
+      );
+    }
+  }
+
   const incomeCount = categories.filter((c) => c.kind === "income").length;
   const expenseCount = categories.filter((c) => c.kind === "expense").length;
+  const totalIncome = transactions
+    .filter((t) => t.type === "income")
+    .reduce((sum, t) => sum + t.amount, 0);
+  const totalExpense = transactions
+    .filter((t) => t.type === "expense")
+    .reduce((sum, t) => sum + t.amount, 0);
 
   return (
     <div className="min-h-screen">
@@ -159,7 +334,7 @@ export function DashboardPage() {
               : user?.email
                 ? ` as ${user.email}`
                 : ""}
-            . Manage categories for income and expenses.
+            . Manage categories and log income or expenses.
           </p>
 
           {error ? (
@@ -180,12 +355,24 @@ export function DashboardPage() {
                   </span>
                 </p>
                 <p>
-                  <span className="text-muted">Income</span>{" "}
+                  <span className="text-muted">Income cats</span>{" "}
                   <span className="font-medium text-ink">{incomeCount}</span>
                 </p>
                 <p>
-                  <span className="text-muted">Expense</span>{" "}
+                  <span className="text-muted">Expense cats</span>{" "}
                   <span className="font-medium text-ink">{expenseCount}</span>
+                </p>
+                <p>
+                  <span className="text-muted">Listed income</span>{" "}
+                  <span className="font-medium text-[var(--success)]">
+                    {formatMoney(totalIncome)}
+                  </span>
+                </p>
+                <p>
+                  <span className="text-muted">Listed expense</span>{" "}
+                  <span className="font-medium text-[var(--danger)]">
+                    {formatMoney(totalExpense)}
+                  </span>
                 </p>
               </div>
 
@@ -309,6 +496,237 @@ export function DashboardPage() {
                       </li>
                     ))}
                   </ul>
+                )}
+              </section>
+
+              <section className="mt-12">
+                <h2 className="font-display text-2xl">Transactions</h2>
+                <p className="mt-1 text-sm text-muted">
+                  Log income and expenses. Filter by type, category, or date.
+                </p>
+
+                {categories.length === 0 ? (
+                  <p className="mt-6 text-sm text-muted">
+                    Add a category before logging a transaction.
+                  </p>
+                ) : (
+                  <form
+                    onSubmit={onCreateTransaction}
+                    className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-5"
+                  >
+                    <label className="flex flex-col gap-1.5 text-sm">
+                      <span className="font-medium text-ink">Type</span>
+                      <select
+                        value={txType}
+                        onChange={(e) =>
+                          setTxType(e.target.value as TransactionType)
+                        }
+                        className="h-10 rounded-[var(--radius-sm)] border border-border bg-surface px-3 text-ink"
+                      >
+                        <option value="expense">Expense</option>
+                        <option value="income">Income</option>
+                      </select>
+                    </label>
+                    <label className="flex flex-col gap-1.5 text-sm">
+                      <span className="font-medium text-ink">Category</span>
+                      <select
+                        required
+                        value={txCategoryId}
+                        onChange={(e) => setTxCategoryId(e.target.value)}
+                        className="h-10 rounded-[var(--radius-sm)] border border-border bg-surface px-3 text-ink"
+                      >
+                        {categoriesForTx.length === 0 ? (
+                          <option value="">No matching categories</option>
+                        ) : (
+                          categoriesForTx.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name}
+                            </option>
+                          ))
+                        )}
+                      </select>
+                    </label>
+                    <label className="flex flex-col gap-1.5 text-sm">
+                      <span className="font-medium text-ink">Amount</span>
+                      <input
+                        type="number"
+                        required
+                        min={0.01}
+                        step="0.01"
+                        value={txAmount}
+                        onChange={(e) => setTxAmount(e.target.value)}
+                        placeholder="0.00"
+                        className="h-10 rounded-[var(--radius-sm)] border border-border bg-surface px-3 text-ink"
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1.5 text-sm">
+                      <span className="font-medium text-ink">Date</span>
+                      <input
+                        type="date"
+                        required
+                        value={txDate}
+                        onChange={(e) => setTxDate(e.target.value)}
+                        className="h-10 rounded-[var(--radius-sm)] border border-border bg-surface px-3 text-ink"
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1.5 text-sm">
+                      <span className="font-medium text-ink">
+                        Note (optional)
+                      </span>
+                      <input
+                        type="text"
+                        maxLength={200}
+                        value={txNote}
+                        onChange={(e) => setTxNote(e.target.value)}
+                        placeholder="Weekly groceries"
+                        className="h-10 rounded-[var(--radius-sm)] border border-border bg-surface px-3 text-ink"
+                      />
+                    </label>
+                    <div className="flex items-end sm:col-span-2 lg:col-span-5">
+                      <button
+                        type="submit"
+                        disabled={
+                          txBusy ||
+                          !txCategoryId ||
+                          categoriesForTx.length === 0
+                        }
+                        className="h-10 rounded-[var(--radius-sm)] bg-accent px-4 text-sm font-medium text-white transition hover:bg-accent-hover disabled:opacity-60"
+                      >
+                        {txBusy ? "Saving…" : "Add transaction"}
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                <form
+                  onSubmit={onApplyFilters}
+                  className="mt-8 flex flex-wrap items-end gap-3 border-t border-border pt-6"
+                >
+                  <label className="flex min-w-[7rem] flex-col gap-1.5 text-sm">
+                    <span className="font-medium text-ink">Filter type</span>
+                    <select
+                      value={filterType}
+                      onChange={(e) =>
+                        setFilterType(e.target.value as "" | TransactionType)
+                      }
+                      className="h-10 rounded-[var(--radius-sm)] border border-border bg-surface px-3 text-ink"
+                    >
+                      <option value="">All</option>
+                      <option value="income">Income</option>
+                      <option value="expense">Expense</option>
+                    </select>
+                  </label>
+                  <label className="flex min-w-[10rem] flex-1 flex-col gap-1.5 text-sm">
+                    <span className="font-medium text-ink">
+                      Filter category
+                    </span>
+                    <select
+                      value={filterCategoryId}
+                      onChange={(e) => setFilterCategoryId(e.target.value)}
+                      className="h-10 rounded-[var(--radius-sm)] border border-border bg-surface px-3 text-ink"
+                    >
+                      <option value="">All</option>
+                      {categories.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name} ({c.kind})
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="flex flex-col gap-1.5 text-sm">
+                    <span className="font-medium text-ink">From</span>
+                    <input
+                      type="date"
+                      value={filterFrom}
+                      onChange={(e) => setFilterFrom(e.target.value)}
+                      className="h-10 rounded-[var(--radius-sm)] border border-border bg-surface px-3 text-ink"
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1.5 text-sm">
+                    <span className="font-medium text-ink">To</span>
+                    <input
+                      type="date"
+                      value={filterTo}
+                      onChange={(e) => setFilterTo(e.target.value)}
+                      className="h-10 rounded-[var(--radius-sm)] border border-border bg-surface px-3 text-ink"
+                    />
+                  </label>
+                  <button
+                    type="submit"
+                    className="h-10 rounded-[var(--radius-sm)] border border-border bg-surface px-4 text-sm font-medium text-ink hover:bg-accent-soft"
+                  >
+                    Apply filters
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onClearFilters}
+                    className="h-10 rounded-[var(--radius-sm)] border border-border px-4 text-sm text-muted hover:bg-accent-soft"
+                  >
+                    Clear
+                  </button>
+                </form>
+
+                {transactions.length === 0 ? (
+                  <p className="mt-6 text-sm text-muted">
+                    No transactions match. Add one or clear filters.
+                  </p>
+                ) : (
+                  <div className="mt-6 overflow-x-auto">
+                    <table className="w-full min-w-[36rem] border-collapse text-left text-sm">
+                      <thead>
+                        <tr className="border-b border-border text-muted">
+                          <th className="py-2 pr-4 font-medium">Date</th>
+                          <th className="py-2 pr-4 font-medium">Type</th>
+                          <th className="py-2 pr-4 font-medium">Category</th>
+                          <th className="py-2 pr-4 font-medium">Amount</th>
+                          <th className="py-2 pr-4 font-medium">Note</th>
+                          <th className="py-2 font-medium">
+                            <span className="sr-only">Actions</span>
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {transactions.map((tx) => (
+                          <tr
+                            key={tx.id}
+                            className="border-b border-border/80"
+                          >
+                            <td className="py-2.5 pr-4 tabular-nums text-ink">
+                              {formatTxDate(tx.date)}
+                            </td>
+                            <td className="py-2.5 pr-4 capitalize text-ink">
+                              {tx.type}
+                            </td>
+                            <td className="py-2.5 pr-4 text-ink">
+                              {tx.category.name}
+                            </td>
+                            <td
+                              className={`py-2.5 pr-4 tabular-nums font-medium ${
+                                tx.type === "income"
+                                  ? "text-[var(--success)]"
+                                  : "text-ink"
+                              }`}
+                            >
+                              {tx.type === "income" ? "+" : "−"}
+                              {formatMoney(tx.amount)}
+                            </td>
+                            <td className="py-2.5 pr-4 text-muted">
+                              {tx.note ?? "—"}
+                            </td>
+                            <td className="py-2.5 text-right">
+                              <button
+                                type="button"
+                                onClick={() => onDeleteTransaction(tx.id)}
+                                className="rounded-[var(--radius-sm)] border border-border px-2.5 py-1 text-xs text-[var(--danger)] hover:bg-accent-soft"
+                              >
+                                Delete
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
               </section>
             </>

@@ -18,7 +18,7 @@ Third app in the portfolio program — builds on StudyFlow by adding aggregation
 
 - [x] Authentication (register / login)
 - [x] Categories
-- [ ] Income and expense CRUD
+- [x] Income and expense CRUD
 - [ ] Monthly summary chart
 - [ ] CSV export and import
 
