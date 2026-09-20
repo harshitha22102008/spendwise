@@ -33,3 +33,11 @@ coverage/
 # Vite
 *.tsbuildinfo
 .vite/
+
+# SQLite databases (Prisma local demo)
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+prisma/*.db
+dev.db

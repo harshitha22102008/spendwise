@@ -1,7 +1,74 @@
 # SpendWise
 
-Personal finance tracker for student income and expenses with categories, charts, and CSV import/export.
+> Track student income and expenses with categories, monthly charts, and CSV import/export.
 
-**Status:** Scaffold — implementation pending
+**Author:** Harshitha  
+**Stack:** React · TypeScript · Vite · Tailwind · Node/Express · Prisma · SQLite · JWT  
+**Status:** Scaffold only
 
-A full README will follow the program template once implementation begins. Design system guidance lives in the portfolio repo docs.
+## Problem
+
+Students need a simple way to see where money goes without bank APIs or budgeting complexity. SpendWise focuses on logging income/expenses, grouping by category, and moving data via CSV.
+
+## Why this project
+
+Third app in the portfolio program — builds on StudyFlow by adding aggregations and file import/export on the same full-stack stack.
+
+## Features (MVP)
+
+- [ ] Authentication (register / login)
+- [ ] Categories
+- [ ] Income and expense CRUD
+- [ ] Monthly summary chart
+- [ ] CSV export and import
+
+## Features (Future)
+
+- Budgets with alerts
+- Bank account linking
+- Receipt OCR
+- Multi-currency FX
+
+## Architecture
+
+```
+client (React) --JWT--> server (Express) --> Prisma --> SQLite
+```
+
+## Setup (local)
+
+### Prerequisites
+
+- Node.js 20+
+- npm
+
+### Install
+
+```bash
+npm run install:all
+```
+
+### Server
+
+```bash
+cd server
+cp .env.example .env
+npx prisma migrate dev   # after schema lands
+npm run dev
+```
+
+### Client
+
+```bash
+cd client
+cp .env.example .env
+npm run dev
+```
+
+Or from root: `npm run dev` (client + server via concurrently).
+
+Open http://localhost:5173 — API at http://localhost:5000/api/health.
+
+## Repo
+
+- GitHub: https://github.com/harshitha22102008/spendwise

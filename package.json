@@ -1,0 +1,19 @@
+{
+  "name": "spendwise",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Personal finance tracker for income and expenses with categories, charts, and CSV import/export.",
+  "author": "Harshitha",
+  "scripts": {
+    "dev": "concurrently -n client,server -c teal,green \"npm run dev --prefix client\" \"npm run dev --prefix server\"",
+    "dev:client": "npm run dev --prefix client",
+    "dev:server": "npm run dev --prefix server",
+    "build": "npm run build --prefix client && npm run build --prefix server",
+    "install:all": "npm install && npm install --prefix client && npm install --prefix server",
+    "prisma:migrate": "npm run prisma:migrate --prefix server",
+    "prisma:generate": "npm run prisma:generate --prefix server"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
