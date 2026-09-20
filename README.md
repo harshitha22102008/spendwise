@@ -4,7 +4,7 @@
 
 **Author:** Harshitha  
 **Stack:** React · TypeScript · Vite · Tailwind · Node/Express · Prisma · SQLite · JWT  
-**Status:** Scaffold only
+**Status:** In progress
 
 ## Problem
 
@@ -16,7 +16,7 @@ Third app in the portfolio program — builds on StudyFlow by adding aggregation
 
 ## Features (MVP)
 
-- [ ] Authentication (register / login)
+- [x] Authentication (register / login)
 - [ ] Categories
 - [ ] Income and expense CRUD
 - [ ] Monthly summary chart

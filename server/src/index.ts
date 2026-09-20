@@ -1,6 +1,7 @@
 import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
+import { authRouter } from "./routes/auth.js";
 import { healthRouter } from "./routes/health.js";
 
 dotenv.config();
@@ -17,6 +18,7 @@ app.use(
 app.use(express.json());
 
 app.use("/api/health", healthRouter);
+app.use("/api/auth", authRouter);
 
 app.listen(PORT, () => {
   console.log(`SpendWise API listening on http://localhost:${PORT}`);
