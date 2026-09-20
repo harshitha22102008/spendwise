@@ -20,4 +20,4 @@ React + TypeScript + Express + Prisma/SQLite (program locked stack)
 - Multi-currency FX
 - Shared household budgets
 
-**Status:** Scaffold — implementation pending
+**Status:** Auth + categories in progress; charts/CSV next
