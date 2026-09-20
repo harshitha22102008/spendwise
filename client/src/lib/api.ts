@@ -89,3 +89,33 @@ export async function apiDelete(path: string, auth = false): Promise<void> {
   });
   await handleResponse<void>(res, auth);
 }
+
+/** Authenticated GET that returns a file download (e.g. CSV export). */
+export async function apiDownload(path: string, fallbackName: string): Promise<void> {
+  const headers: HeadersInit = {};
+  const token = getToken();
+  if (token) (headers as Record<string, string>).Authorization = `Bearer ${token}`;
+
+  const res = await fetch(`${API_BASE}${path}`, { headers });
+  if (res.status === 401) {
+    clearAuth();
+  }
+  if (!res.ok) {
+    throw new Error(await parseError(res));
+  }
+
+  const blob = await res.blob();
+  const disposition = res.headers.get("Content-Disposition") ?? "";
+  const match = /filename="([^"]+)"/.exec(disposition);
+  const filename = match?.[1] ?? fallbackName;
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+

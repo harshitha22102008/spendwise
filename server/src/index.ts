@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import express from "express";
 import { authRouter } from "./routes/auth.js";
 import { categoriesRouter } from "./routes/categories.js";
+import { csvRouter } from "./routes/csv.js";
 import { healthRouter } from "./routes/health.js";
 import { summaryRouter } from "./routes/summary.js";
 import { transactionsRouter } from "./routes/transactions.js";
@@ -18,11 +19,12 @@ app.use(
     origin: CLIENT_ORIGIN,
   }),
 );
-app.use(express.json());
+app.use(express.json({ limit: "2mb" }));
 
 app.use("/api/health", healthRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/categories", categoriesRouter);
+app.use("/api/csv", csvRouter);
 app.use("/api/summary", summaryRouter);
 app.use("/api/transactions", transactionsRouter);
 

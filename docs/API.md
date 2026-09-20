@@ -40,3 +40,12 @@ Owner-scoped monthly aggregations for dashboard charts.
 |---|---|---|---|
 | GET | /api/summary/month | Yes | Monthly totals, expense by category, daily income/expense (`?year=&month=` optional; defaults to current local month) |
 
+## CSV
+
+Owner-scoped. Import and export use the same columns: `date,type,category,amount,note`.
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | /api/csv/export | Yes | Download CSV (`?from=&to=` optional) |
+| POST | /api/csv/import | Yes | Body `{ csv: string }`; creates missing categories by name+type |
+

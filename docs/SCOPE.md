@@ -20,4 +20,4 @@ React + TypeScript + Express + Prisma/SQLite (program locked stack)
 - Multi-currency FX
 - Shared household budgets
 
-**Status:** Auth + categories + transactions + monthly charts; CSV next
+**Status:** MVP features complete (auth, categories, transactions, charts, CSV)

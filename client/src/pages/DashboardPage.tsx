@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { CsvTools } from "../components/CsvTools";
 import { MonthlyCharts } from "../components/MonthlyCharts";
 import { apiDelete, apiGet, apiPatch, apiPost } from "../lib/api";
 import { clearAuth, getStoredUser, type AuthUser } from "../lib/auth";
@@ -780,6 +781,15 @@ export function DashboardPage() {
                   </div>
                 )}
               </section>
+
+              <CsvTools
+                onError={(msg) => setError(msg || null)}
+                onImported={async () => {
+                  await loadCategories();
+                  await loadTransactions();
+                  await loadSummary();
+                }}
+              />
             </>
           )}
         </div>
